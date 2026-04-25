@@ -24,6 +24,8 @@ function createExpenseTable(provider, week, mondayDate) {
     // Add delete button to header
     const deleteButton = document.createElement('button');
     deleteButton.textContent = 'Delete Week';
+    deleteButton.classList.add('delete-week-btn');
+    deleteButton.style.display = 'none'; // Initially hidden
     deleteButton.addEventListener('click', () => deleteWeek(provider, week));
     tableHeader.appendChild(deleteButton);
 
@@ -163,6 +165,15 @@ function addNewWeek(provider) {
 document.getElementById('add-provider1-week').addEventListener('click', () => addNewWeek('provider1'));
 document.getElementById('add-provider2-week').addEventListener('click', () => addNewWeek('provider2'));
 
+// Register service worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+            .then(registration => console.log('SW registered'))
+            .catch(error => console.log('SW registration failed'));
+    });
+}
+
 // Function to toggle provider sections
 function toggleProvider(provider) {
     const weeksContainer = document.getElementById(`${provider}-weeks`);
@@ -172,5 +183,8 @@ function toggleProvider(provider) {
 // Function to toggle week tables
 function toggleWeek(provider, week) {
     const table = document.querySelector(`#${provider}-week-${week}-table table`);
-    table.style.display = table.style.display === 'none' ? 'table' : 'none';
+    const deleteBtn = document.querySelector(`#${provider}-week-${week}-table .delete-week-btn`);
+    const isHidden = table.style.display === 'none';
+    table.style.display = isHidden ? 'table' : 'none';
+    deleteBtn.style.display = isHidden ? 'inline-block' : 'none';
 }
