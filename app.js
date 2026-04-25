@@ -17,7 +17,7 @@ function saveWeekDataToStorage(provider, week, weekData) {
 }
 
 // Function to create the expense table for a week
-function createExpenseTable(provider, week, mondayDate) {
+function createExpenseTable(provider, week, mondayDate, expenses = null) {
     const tableContainer = document.createElement('div');
     tableContainer.classList.add('week-table-container');
     tableContainer.id = `${provider}-week-${week}-table`;
@@ -67,14 +67,8 @@ function createExpenseTable(provider, week, mondayDate) {
     tableContainer.appendChild(table);
     document.getElementById(`${provider}-weeks`).appendChild(tableContainer);
 
-    const storedWeek = getWeekDataFromStorage(provider, week);
-    const weekData = storedWeek || { mondayDate, expenses: Array.from({ length: 6 }, () => ({ breakfast: null, lunch: null })) };
-    const weekMondayDate = weekData.mondayDate || mondayDate;
-
-    if (!storedWeek) {
-        weekData.mondayDate = mondayDate;
-        saveWeekDataToStorage(provider, week, weekData);
-    }
+    const weekExpenses = expenses || (getWeekDataFromStorage(provider, week) ? getWeekDataFromStorage(provider, week).expenses : Array.from({ length: 6 }, () => ({ breakfast: null, lunch: null })));
+    const weekMondayDate = mondayDate;
 
     const tableBody = table.getElementsByTagName('tbody')[0];
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -97,8 +91,8 @@ function createExpenseTable(provider, week, mondayDate) {
         dateCell.textContent = date.toLocaleDateString();
 
         // Set initial values for breakfast and lunch
-        const breakfastSelect = createDropdown(weekData.expenses[i] ? weekData.expenses[i].breakfast : null);
-        const lunchSelect = createDropdown(weekData.expenses[i] ? weekData.expenses[i].lunch : null);
+        const breakfastSelect = createDropdown(weekExpenses[i] ? weekExpenses[i].breakfast : null);
+        const lunchSelect = createDropdown(weekExpenses[i] ? weekExpenses[i].lunch : null);
 
         breakfastCell.appendChild(breakfastSelect);
         lunchCell.appendChild(lunchSelect);
@@ -108,8 +102,8 @@ function createExpenseTable(provider, week, mondayDate) {
         lunchSelect.addEventListener('change', (e) => updateMealExpense(e, provider, week, i, 'lunch', e.target.value));
 
         // Sum totals for the week
-        breakfastTotal += weekData.expenses[i] ? weekData.expenses[i].breakfast : 0;
-        lunchTotal += weekData.expenses[i] ? weekData.expenses[i].lunch : 0;
+        breakfastTotal += weekExpenses[i] ? weekExpenses[i].breakfast : 0;
+        lunchTotal += weekExpenses[i] ? weekExpenses[i].lunch : 0;
     }
 
     let breakfastTotal = 0;
@@ -149,6 +143,12 @@ function createExpenseTable(provider, week, mondayDate) {
     document.getElementById(`${provider}-week-${week}-total-breakfast`).textContent = breakfastTotal;
     document.getElementById(`${provider}-week-${week}-total-lunch`).textContent = lunchTotal;
     document.getElementById(`${provider}-week-${week}-total-combined`).textContent = breakfastTotal + lunchTotal;
+
+    // Save the week data if it's a new week
+    if (!expenses) {
+        const weekData = { mondayDate, expenses: weekExpenses };
+        saveWeekDataToStorage(provider, week, weekData);
+    }
 }
 
 // Function to create dropdown for meal amounts
@@ -260,10 +260,29 @@ function getSavedWeekNumbers(provider) {
 function loadSavedWeeks(provider) {
     const weekNumbers = getSavedWeekNumbers(provider);
     weekNumbers.forEach(week => {
-        const weekData = getWeekDataFromStorage(provider, week);
-        const mondayDate = weekData && weekData.mondayDate ? weekData.mondayDate : document.getElementById(`${provider}-monday-date`).value;
-        if (mondayDate) {
-            createExpenseTable(provider, week, mondayDate);
+        const storedData = localStorage.getItem(`${provider}-week-${week}`);
+        if (!storedData) return;
+
+        let weekData;
+        try {
+            weekData = JSON.parse(storedData);
+        } catch (e) {
+            return;
         }
+
+        let mondayDate;
+        let expenses;
+
+        if (Array.isArray(weekData)) {
+            // Old format: just expenses array
+            expenses = weekData;
+            mondayDate = document.getElementById(`${provider}-monday-date`).value || new Date().toISOString().split('T')[0];
+        } else {
+            // New format: { mondayDate, expenses }
+            mondayDate = weekData.mondayDate || document.getElementById(`${provider}-monday-date`).value || new Date().toISOString().split('T')[0];
+            expenses = weekData.expenses || [];
+        }
+
+        createExpenseTable(provider, week, mondayDate, expenses);
     });
 }
