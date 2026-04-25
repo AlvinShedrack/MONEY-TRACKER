@@ -1,12 +1,19 @@
-// Function to get stored expenses from localStorage
-function getExpensesFromStorage(provider, week) {
+// Function to get stored week data from localStorage
+function getWeekDataFromStorage(provider, week) {
     const storedData = localStorage.getItem(`${provider}-week-${week}`);
-    return storedData ? JSON.parse(storedData) : [];
+    if (!storedData) return null;
+
+    const parsed = JSON.parse(storedData);
+    if (Array.isArray(parsed)) {
+        return { mondayDate: null, expenses: parsed };
+    }
+
+    return parsed;
 }
 
-// Function to save expenses to localStorage
-function saveExpensesToStorage(provider, week, expenses) {
-    localStorage.setItem(`${provider}-week-${week}`, JSON.stringify(expenses));
+// Function to save week data to localStorage
+function saveWeekDataToStorage(provider, week, weekData) {
+    localStorage.setItem(`${provider}-week-${week}`, JSON.stringify(weekData));
 }
 
 // Function to create the expense table for a week
@@ -60,10 +67,50 @@ function createExpenseTable(provider, week, mondayDate) {
     tableContainer.appendChild(table);
     document.getElementById(`${provider}-weeks`).appendChild(tableContainer);
 
-    // Add 6 rows for Monday to Saturday
-    const expenses = getExpensesFromStorage(provider, week);
+    const storedWeek = getWeekDataFromStorage(provider, week);
+    const weekData = storedWeek || { mondayDate, expenses: Array.from({ length: 6 }, () => ({ breakfast: null, lunch: null })) };
+    const weekMondayDate = weekData.mondayDate || mondayDate;
+
+    if (!storedWeek) {
+        weekData.mondayDate = mondayDate;
+        saveWeekDataToStorage(provider, week, weekData);
+    }
+
     const tableBody = table.getElementsByTagName('tbody')[0];
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    let breakfastTotal = 0;
+    let lunchTotal = 0;
+
+    for (let i = 0; i < 6; i++) {
+        const row = tableBody.insertRow();
+        const dayCell = row.insertCell(0);
+        const dateCell = row.insertCell(1);
+        const breakfastCell = row.insertCell(2);
+        const lunchCell = row.insertCell(3);
+        const actionCell = row.insertCell(4);
+
+        dayCell.textContent = daysOfWeek[i];
+        
+        const date = new Date(weekMondayDate);
+        date.setDate(date.getDate() + i);
+        dateCell.textContent = date.toLocaleDateString();
+
+        // Set initial values for breakfast and lunch
+        const breakfastSelect = createDropdown(weekData.expenses[i] ? weekData.expenses[i].breakfast : null);
+        const lunchSelect = createDropdown(weekData.expenses[i] ? weekData.expenses[i].lunch : null);
+
+        breakfastCell.appendChild(breakfastSelect);
+        lunchCell.appendChild(lunchSelect);
+
+        // Add event listeners to update expense when a new amount is selected
+        breakfastSelect.addEventListener('change', (e) => updateMealExpense(e, provider, week, i, 'breakfast', e.target.value));
+        lunchSelect.addEventListener('change', (e) => updateMealExpense(e, provider, week, i, 'lunch', e.target.value));
+
+        // Sum totals for the week
+        breakfastTotal += weekData.expenses[i] ? weekData.expenses[i].breakfast : 0;
+        lunchTotal += weekData.expenses[i] ? weekData.expenses[i].lunch : 0;
+    }
 
     let breakfastTotal = 0;
     let lunchTotal = 0;
@@ -122,18 +169,19 @@ function createDropdown(selectedValue) {
 
 // Function to update the meal expense
 function updateMealExpense(event, provider, week, dayIndex, mealType, amount) {
-    const expenses = getExpensesFromStorage(provider, week);
-    if (!expenses[dayIndex]) expenses[dayIndex] = { breakfast: null, lunch: null };
+    const weekData = getWeekDataFromStorage(provider, week) || { mondayDate: document.getElementById(`${provider}-monday-date`).value, expenses: Array.from({ length: 6 }, () => ({ breakfast: null, lunch: null })) };
+    if (!weekData.expenses[dayIndex]) weekData.expenses[dayIndex] = { breakfast: null, lunch: null };
 
-    expenses[dayIndex][mealType] = parseInt(amount);
-    saveExpensesToStorage(provider, week, expenses);
+    weekData.expenses[dayIndex][mealType] = parseInt(amount);
+    weekData.mondayDate = weekData.mondayDate || document.getElementById(`${provider}-monday-date`).value;
+    saveWeekDataToStorage(provider, week, weekData);
 
     // Recalculate and update totals without re-creating the table
     let breakfastTotal = 0;
     let lunchTotal = 0;
     for (let i = 0; i < 6; i++) {
-        breakfastTotal += expenses[i] ? expenses[i].breakfast : 0;
-        lunchTotal += expenses[i] ? expenses[i].lunch : 0;
+        breakfastTotal += weekData.expenses[i] ? weekData.expenses[i].breakfast : 0;
+        lunchTotal += weekData.expenses[i] ? weekData.expenses[i].lunch : 0;
     }
     document.getElementById(`${provider}-week-${week}-total-breakfast`).textContent = breakfastTotal;
     document.getElementById(`${provider}-week-${week}-total-lunch`).textContent = lunchTotal;
@@ -165,6 +213,12 @@ function addNewWeek(provider) {
 document.getElementById('add-UP-week').addEventListener('click', () => addNewWeek('UP'));
 document.getElementById('add-DOWN-week').addEventListener('click', () => addNewWeek('DOWN'));
 
+// Load saved weeks from localStorage when the page loads
+window.addEventListener('load', () => {
+    loadSavedWeeks('UP');
+    loadSavedWeeks('DOWN');
+});
+
 // Register service worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -187,4 +241,29 @@ function toggleWeek(provider, week) {
     const isHidden = table.style.display === 'none';
     table.style.display = isHidden ? 'table' : 'none';
     deleteBtn.style.display = isHidden ? 'inline-block' : 'none';
+}
+
+// Function to get saved week numbers for a provider
+function getSavedWeekNumbers(provider) {
+    const weeks = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const match = key.match(new RegExp(`^${provider}-week-(\\d+)$`));
+        if (match) {
+            weeks.push(parseInt(match[1], 10));
+        }
+    }
+    return weeks.sort((a, b) => a - b);
+}
+
+// Function to load saved weeks for a provider
+function loadSavedWeeks(provider) {
+    const weekNumbers = getSavedWeekNumbers(provider);
+    weekNumbers.forEach(week => {
+        const weekData = getWeekDataFromStorage(provider, week);
+        const mondayDate = weekData && weekData.mondayDate ? weekData.mondayDate : document.getElementById(`${provider}-monday-date`).value;
+        if (mondayDate) {
+            createExpenseTable(provider, week, mondayDate);
+        }
+    });
 }
