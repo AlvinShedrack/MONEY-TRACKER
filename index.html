@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Money Tracker App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Money Tracker</h1>
+
+        <!-- Service Provider 1 Section -->
+        <div class="provider-section" id="provider1-section">
+            <h2 onclick="toggleProvider('provider1')">Service Provider 1</h2>
+            
+            <label for="provider1-name">Enter Provider Name:</label>
+            <input type="text" id="provider1-name" placeholder="Enter Name" />
+            
+            <label for="provider1-monday-date">Enter Monday's Date:</label>
+            <input type="date" id="provider1-monday-date" />
+            
+            <button id="add-provider1-week">Add New Week</button>
+
+            <div id="provider1-weeks" class="weeks-container"></div>
+        </div>
+
+        <hr>
+
+        <!-- Service Provider 2 Section -->
+        <div class="provider-section" id="provider2-section">
+            <h2 onclick="toggleProvider('provider2')">Service Provider 2</h2>
+            
+            <label for="provider2-name">Enter Provider Name:</label>
+            <input type="text" id="provider2-name" placeholder="Enter Name" />
+            
+            <label for="provider2-monday-date">Enter Monday's Date:</label>
+            <input type="date" id="provider2-monday-date" />
+            
+            <button id="add-provider2-week">Add New Week</button>
+
+            <div id="provider2-weeks" class="weeks-container"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
