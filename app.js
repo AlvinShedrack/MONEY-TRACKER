@@ -162,8 +162,8 @@ function addNewWeek(provider) {
 }
 
 // Event listeners for adding new weeks
-document.getElementById('add-provider1-week').addEventListener('click', () => addNewWeek('provider1'));
-document.getElementById('add-provider2-week').addEventListener('click', () => addNewWeek('provider2'));
+document.getElementById('add-UP-week').addEventListener('click', () => addNewWeek('UP'));
+document.getElementById('add-DOWN-week').addEventListener('click', () => addNewWeek('DOWN'));
 
 // Register service worker
 if ('serviceWorker' in navigator) {
